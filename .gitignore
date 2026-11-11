@@ -1,0 +1,28 @@
+# Build output
+/build/
+*.dll
+*.o
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Python test caches
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local editor state
+/.vs/
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

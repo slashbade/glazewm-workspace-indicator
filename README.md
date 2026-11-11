@@ -1,69 +1,106 @@
 # GlazeWM Workspace Indicator
 
-用于 Windows 11 的 Windhawk mod：把 GlazeWM 工作区按钮放在 **Windows 开始徽标右侧**。
+A Windhawk mod that adds GlazeWM workspace buttons immediately to the right of the Windows 11 Start button.
 
 ```text
-Windows 徽标   [ chat ━ ] [ web ] [ code ]   搜索 / 任务视图 / 应用图标 …
+Start   [ chat ━ ] [ web ] [ code ]   Search / Task View / Apps …
 ```
 
-界面使用任务栏内的原生 Windows XAML 控件，Segoe UI Variable 字体、圆角、系统主题色、原生悬停和键盘焦点效果。当前焦点工作区显示强调色下划线；当前屏幕正在显示的工作区有淡背景。没有独立悬浮窗口。
+The indicator uses native Windows XAML controls inside the taskbar, with system theme colors, rounded buttons, tooltips, and keyboard focus support. It connects directly to GlazeWM; no Zebar, Node.js, or helper process is required.
 
-## 显示逻辑
+**Status:** Experimental (0.1.0). Compilation and local GlazeWM IPC have been tested, but the mod has not yet been validated inside Explorer. See [Compatibility](#compatibility) before enabling it.
 
-与 [Zebar starter 的 GlazeWM 工作区部分](https://github.com/glzr-io/zebar/blob/main/resources/starter/with-glazewm.html) 一致：
+## Features
 
-- 每个任务栏显示对应屏幕上已激活的工作区，保留 GlazeWM 返回顺序。
-- 默认使用 `displayName ?? name`，可以切换为工作区名称／编号。
-- `hasFocus` 与 `isDisplayed` 分别显示；多屏下，正在显示不一定拥有焦点。
-- 点击按钮聚焦该工作区。命令使用工作区 UUID，显示名称不会进入命令。
+- Each taskbar shows the active workspaces on its monitor, in the order returned by GlazeWM.
+- Labels use `displayName` when present, falling back to `name`. Workspace names can also be selected explicitly.
+- An accent underline marks the focused workspace; a subtle background marks a displayed workspace. These states can differ across monitors.
+- Clicking a button focuses its workspace using its UUID.
+- The strip scrolls horizontally when its contents exceed the available width.
+- Stale workspace buttons disappear when GlazeWM disconnects and return after reconnection.
 
-这并不列出配置文件内尚未激活的所有工作区，也不复制 Zebar 的 CPU、天气、窗口标题等其他组件。
+Only active workspaces returned by GlazeWM are shown, including those currently hidden. Workspaces that exist only in the configuration are not listed. The mod does not change the GlazeWM configuration.
 
-## 安装
+## Requirements
 
-需要 Windows 11 x64 的原生水平任务栏、Windhawk 和运行中的 GlazeWM 3.x。
+- Windows 11 x64 with the native horizontal taskbar and a visible Start button.
+- Windhawk with its compiler installed.
+- GlazeWM 3.x running locally.
 
-1. 在 Windhawk 选择「创建新 mod」。
-2. 将 [glazewm-workspace-indicator.wh.cpp](glazewm-workspace-indicator.wh.cpp) 的完整内容替换到编辑器。
-3. 点击「编译 Mod」，然后启用。首次加载可能需要下载 Windows 符号。
-4. 在 mod 设置中调整显示名称、最大宽度、按钮高度或刷新间隔。
+## Installation
 
-默认连接 `127.0.0.1:6123`。不需要运行 Zebar，不需要 Node.js，不会修改 GlazeWM 配置。设置变更会重新加载 mod。禁用时移除按钮并恢复开始按钮的原始间距。
+1. Open Windhawk and select **Create a new mod**.
+2. Replace the editor contents with the complete [glazewm-workspace-indicator.wh.cpp](glazewm-workspace-indicator.wh.cpp) file.
+3. Compile the mod and enable it. The first load may require Windows symbol downloads.
+4. Open the mod settings to customize labels, dimensions, or the connection settings.
 
-## 实现与兼容性
+By default, the mod connects to `127.0.0.1:6123`. Changing settings reloads the mod. Disabling it removes the buttons and restores the Start button's original spacing.
 
-通过持久 WebSocket 每 300 ms 查询 `query monitors`，不重复启动 CLI 进程。网络在后台线程运行，接收有 2 秒截止时间，断线时隐藏旧工作区并重连。按钮点击在下一次查询周期发送。这里使用轮询快照，而不是 Zebar 的事件订阅。
+## Configuration
 
-通过任务栏的 `TaskbarHost` 找到 XAML 根节点，在开始按钮右侧增加布局间距，在同一任务栏根 Grid 中放入工作区条。宽度上限默认 280 DIP，并限制为任务栏根宽度的 35%；超出后可横向滚动。Windows 的任务栏对齐选项不被修改。
+Settings are available in Windhawk's mod settings panel.
 
-**0.1.0 是实验版本。** 已通过本机 Windhawk 工具链编译与真实 GlazeWM IPC 测试；尚未注入 Explorer 做实际 UI 验证。左右对齐、多屏缩放、自动隐藏和 Windows 更新后的布局仍需按下表验证。依赖未公开的任务栏符号；不支持的机器码布局会拒绝解析，Windhawk 日志中会显示原因。
+| Setting | Default | Description |
+| --- | --- | --- |
+| GlazeWM IPC port | `6123` | Port used to connect to GlazeWM on localhost. |
+| Refresh interval | `300` ms | Snapshot polling interval, clamped to 100–5000 ms. |
+| Workspace label | Display name | Use `displayName` with a `name` fallback, or always use the workspace name / number. |
+| Maximum strip width | `280` DIPs | Width limit before horizontal scrolling; also limited to 35% of the taskbar root width. |
+| Button height | `32` DIPs | Workspace button height in device-independent pixels. |
 
-不支持 Windows 10／ExplorerPatcher 旧式任务栏、垂直任务栏或隐藏开始按钮的布局。会修改开始按钮位置／Margin 的其他 mod（例如 Start button always on the left）可能冲突，首次验证建议关闭它们。
+## Compatibility
 
-## 开发与验证
+The mod relies on undocumented Windows taskbar symbols and layout details, which can change with Windows updates. Unsupported machine-code layouts are rejected and reported in the Windhawk log.
+
+Windows 10, ExplorerPatcher's legacy taskbar, vertical taskbars, and layouts that hide Start are unsupported. Other mods that reposition Start or change its margins may conflict; disable them during initial testing.
+
+Left and centered taskbar alignment, mixed-DPI monitors, auto-hide, and behavior across Windows updates still need manual UI validation. Compilation and IPC tests do not verify taskbar rendering.
+
+## Development
+
+The build script uses the compiler bundled with Windhawk, installed at `C:\Program Files\Windhawk` by default. Run these commands from the repository root in PowerShell:
 
 ```powershell
-.\scripts\build.ps1        # 编译与链接检查，产物位于 build/
-.\scripts\build.ps1 -Test  # 解析、命令验证、真实本地 WebSocket 和关闭测试
-python tests/stalled-peer.py # 模拟服务端卡住，验证超时与取消接收（需要 Python 3）
+# Compile and link the mod; output is written to build/.
+.\scripts\build.ps1
+
+# Build and run parser, command validation, live IPC, and shutdown tests.
+.\scripts\build.ps1 -Test
+
+# Test stalled responses, stale-state cleanup, and receive cancellation.
+# Requires Python 3 and the test executable built above.
+python tests/stalled-peer.py
 ```
 
-脚本需要 Windhawk 自带编译器；可以使用 `-Windhawk 'D:\Windhawk'` 指定安装目录。测试要求 GlazeWM 正在默认端口运行，不会发送工作区切换命令。`build/` 的 DLL 用于编译检查；安装请让 Windhawk 编辑器编译源文件，以生成 Windhawk 管理的生命周期入口。
+To use a different Windhawk installation, pass `-Windhawk 'D:\Windhawk'` to the build script.
 
-实际 UI 验收清单：
+The `-Test` run requires GlazeWM on the default port. It queries the running instance without sending workspace-switch commands. The stalled-peer test starts its own local mock server.
 
-| 场景 | 预期 |
+The DLL in `build/` is for compilation checks. Install through the Windhawk editor so Windhawk generates its managed lifecycle entry points.
+
+### How it works
+
+A background thread polls `query monitors` over a persistent local WebSocket. Receive operations have a two-second deadline; failed connections clear stale state and are retried. Focus commands are queued for the next polling cycle. The mod uses snapshot polling rather than event subscriptions.
+
+The UI locates the XAML root through `TaskbarHost`, reserves space beside Start, and inserts the workspace strip into the taskbar's root grid. It leaves the Windows taskbar alignment setting unchanged.
+
+### Manual UI checklist
+
+| Scenario | Expected behavior |
 | --- | --- |
-| 任务栏左对齐／居中 | 指示器紧贴开始按钮右侧；搜索、应用图标无重叠 |
-| 两块屏幕、不同缩放比例 | 各自显示对应屏幕工作区；尺寸遵循 DIP |
-| 点击／键盘激活按钮 | 聚焦目标工作区；不打开开始菜单 |
-| 中文、特殊字符、长名称 | 正常显示、长名称截断、悬停显示完整名称 |
-| 浅色／深色／高对比度 | 文字、背景、焦点框清晰可辨 |
-| 自动隐藏、分辨率变化、拔插显示器 | 指示器跟随任务栏，位置恢复正确 |
-| 停止／重启 GlazeWM | 隐藏过期信息、自动重连 |
-| 禁用／重新启用 mod | 原始间距恢复；没有残留按钮或事件回调 |
+| Left / centered taskbar | Buttons sit beside Start without overlapping Search or app icons. |
+| Multiple monitors with different scaling | Each taskbar shows its monitor's workspaces at the correct scale. |
+| Mouse / keyboard activation | The target workspace receives focus without opening Start. |
+| Unicode, special characters, and long labels | Labels render correctly; long names are trimmed and available in tooltips. |
+| Light, dark, and high-contrast themes | Text, backgrounds, and focus indicators remain readable. |
+| Auto-hide, resolution changes, and monitor hot-plug | The strip follows the taskbar and recovers its position. |
+| GlazeWM stop / restart | Stale information disappears and reconnects automatically. |
+| Mod disable / re-enable | Original spacing is restored, with no leftover buttons or callbacks. |
 
-## 来源与许可
+## Contributing
 
-GPL-3.0-or-later，参见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。
-# glazewm-workspace-indicator
+Bug reports and pull requests are welcome. For taskbar issues, include your Windows build, Windhawk and GlazeWM versions, monitor scaling, taskbar alignment, other taskbar mods, and relevant Windhawk logs. Include build and test results with code changes, and describe any manual UI checks performed.
+
+## License and attribution
+
+Licensed under **GPL-3.0-or-later**. See [LICENSE](LICENSE) for the license text and [NOTICE.md](NOTICE.md) for upstream credits and references.
